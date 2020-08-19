@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE tiles-definitions PUBLIC
+        "-//Apache Software Foundation//DTD Tiles Configuration 3.0//EN"
+        "http://tiles.apache.org/dtds/tiles-config_3_0.dtd">
+<tiles-definitions>
+    <!-- 主布局,基础模板 -->
+    <definition name="template_base" template="/jsp/template.jsp">
+    </definition>
+    <!-- 单个次布局   extends继承上面的主模块，也可以直接引用-->
+    <!--可以用通配符匹配多个页面，我这就没配我的menu.jsp页面，用的是通配符匹配，也能匹配到-->
+    <definition name="*" extends="template_base">
+        <put-attribute name="header" value="/jsp/header.jsp"/>
+        <!--这里{1}是通配符的意思，{1}代表definition name="*"中的*-->
+        <put-attribute name="body" value="/jsp/{1}.jsp" />
+        <put-attribute name="footer" value="/jsp/footer.jsp"/>
+    </definition>
+    <definition name="menu" extends="template_base">
+        <put-attribute name="header" value="/jsp/header.jsp"/>
+        <put-attribute name="body" value="/jsp/menu.jsp" />
+        <put-attribute name="footer" value="/jsp/footer.jsp"/>
+    </definition>
+    <!--也可以单个jsp页面匹配-->
+    <definition name="content" extends="template_base">
+        <put-attribute name="header" value="/jsp/header.jsp"/>
+        <put-attribute name="body" value="/jsp/content.jsp"/>
+        <put-attribute name="footer" value="/jsp/footer.jsp"/>
+    </definition>
+</tiles-definitions>

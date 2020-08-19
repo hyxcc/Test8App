@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop" xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop.xsd
+       http://www.springframework.org/schema/context
+       https://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/mvc https://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <context:annotation-config/>
+    <!--扫描spring注解-->
+    <context:component-scan base-package="com.hyx"/>
+    <!--加载db.properties-->
+    <context:property-placeholder location="classpath*:*.properties" />
+    <!--数据源-->
+    <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+        <property name="driverClassName" value="${jdbc.driver}"/>
+        <property name="url" value=" ${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+    <bean id="sessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <!--配置别名-->
+        <property name="typeAliasesPackage" value="com.hyx.pojo"/>
+        <property name="mapperLocations" value="classpath:com/hyx/dao/mapper/*.xml"/>
+    </bean>
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="sqlSessionFactoryBeanName" value="sessionFactory"/>
+        <!--扫描包，进行映射-->
+        <property name="basePackage" value="com.hyx.dao"/>
+    </bean>
+    <!--开启aspectj的自动代理-->
+    <aop:aspectj-autoproxy/>
+
+    <mvc:interceptors>
+        <mvc:interceptor>
+            <!--/**是对所有请求路径以及子路经进行拦截-->
+            <mvc:mapping path="/**"/>
+            <!--这儿需要注意，拦截器拦截全部请求的话会把包括静态资源请求也拦截到，
+            如果对某些静态资源不拦截可以配置exclude-mapping-->
+            <mvc:exclude-mapping path="/css/**"/>
+            <mvc:exclude-mapping path="/img/**"/>
+            <mvc:exclude-mapping path="/pic/**"/>
+            <bean class="com.hyx.interceptor.MyInterceptor"></bean>
+        </mvc:interceptor>
+    </mvc:interceptors>
+
+    <!-- Redis连接池的设置 -->
+    <bean id="jedisPoolConfig" class="redis.clients.jedis.JedisPoolConfig">
+        <!-- 控制一个pool可分配多少个jedis实例 -->
+        <property name="maxTotal" value="${redis.pool.maxActive}" />
+        <!-- 连接池中最多可空闲maxIdle个连接 ，这里取值为20，表示即使没有数据库连接时依然可以保持20空闲的连接，而不被清除，随时处于待命状态。 -->
+        <property name="maxIdle" value="${redis.pool.maxIdle}" />
+        <!-- 最大等待时间:当没有可用连接时,连接池等待连接被归还的最大时间(以毫秒计数),超过时间则抛出异常 -->
+        <property name="maxWaitMillis" value="${redis.pool.maxWait}" />
+        <!-- 在获取连接的时候检查有效性 -->
+        <property name="testOnBorrow" value="${redis.pool.testOnBorrow}" />
+    </bean>
+
+    <!-- 创建Redis连接池，并做相关配置 -->
+    <bean id="jedisWritePool" class="com.hyx.util.JedisPoolWriper"
+          depends-on="jedisPoolConfig">
+        <constructor-arg index="0" ref="jedisPoolConfig" />
+        <constructor-arg index="1" value="${redis.hostname}" />
+        <constructor-arg index="2" value="${redis.port}" type="int" />
+    </bean>
+    <context:property-placeholder location="classpath:redis.properties" ignore-unresolvable="true"/>
+    <!-- 创建Redis工具类，封装好Redis的连接以进行相关的操作 -->
+    <bean id="jedisUtil" class="com.hyx.util.JedisUtil" scope="singleton">
+        <property name="jedisPool">
+            <ref bean="jedisWritePool" />
+        </property>
+    </bean>
+    <!-- Redis的key操作 -->
+    <bean id="jedisKeys" class="com.hyx.util.JedisUtil$Keys" scope="singleton">
+        <constructor-arg ref="jedisUtil"></constructor-arg>
+    </bean>
+    <!-- Redis的Strings操作 -->
+    <bean id="jedisStrings" class="com.hyx.util.JedisUtil$Strings"
+          scope="singleton">
+        <constructor-arg ref="jedisUtil"></constructor-arg>
+    </bean>
+
+    <bean id="sendSms" class="com.hyx.util.aliyun.SendSms">
+        <property name="accessKeyId" value="${aliyun.accessKeyId}"/>
+        <property name="accessKeySecret" value="${aliyun.accessKeySecret}"/>
+        <property name="templateCode" value="${aliyun.signName}"/>
+        <property name="signName" value="${aliyun.templateCode}"/>
+        <property name="product" value="${aliyun.product}"/>
+        <property name="domain" value="${aliyun.domain}"/>
+    </bean>
+    <bean id="sendMail" class="com.hyx.util.aliyun.SendMail">
+        <property name="RegionId" value="${aliyun.RegionId}"/>
+        <property name="AccountName" value="${aliyun.AccountName}"/>
+        <property name="AddressType" value="${aliyun.AddressType}"/>
+        <property name="ReplyToAddress" value="${aliyun.ReplyToAddress}"/>
+        <property name="Subject" value="${aliyun.Subject}"/>
+        <property name="accessKeyId" value="${aliyun.accessKeyId}"/>
+        <property name="accessKeySecret" value="${aliyun.accessKeySecret}"/>
+    </bean>
+
+    <bean id="ossPicture" class="com.hyx.util.aliyun.OssPicture">
+        <property name="accessKeyId" value="${aliyun.accessKeyId}"/>
+        <property name="accessKeySecret" value="${aliyun.accessKeySecret}"/>
+        <property name="endpoint" value="${aliyun.endpoint}"></property>
+    </bean>
+    <!--id为固定的，只能为multipartResolver
+        作用：将客户端上传的file对象转换成MultipartFile对象，设置文件解析的编码一定要与页面编码保持一致pageEncoding
+      xml的属性是纯文本，不能写运算符，属性
+        defaultEncoding配置请求的编码格式，默认为iso-8859-1
+        maxUploadSize配置文件的最大单位，单位为字节
+        maxInMemorySize配置上传文件的缓存 ，单位为字节
+        resolveLazily属性启用是为了推迟文件解析，以便在UploadAction 中捕获文件大小异常
+            -->
+    <bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+        <property name="defaultEncoding" value="utf-8"/>
+        <property name="maxUploadSize" value="88888888"/>
+        <property name="maxInMemorySize" value="4096" />
+        <property name="resolveLazily" value="true" />
+    </bean>
+    <bean id="bucketReferer" class="com.hyx.util.aliyun.AliyunBucketReferer">
+        <property name="accessKeyId" value="${aliyun.accessKeyId}"/>
+        <property name="accessKeySecret" value="${aliyun.accessKeySecret}"/>
+    </bean>
+    <bean id="pictureDispose" class="com.hyx.util.aliyun.AliyunPictureDispose">
+        <property name="accessKeyId" value="${aliyun.accessKeyId}"/>
+        <property name="accessKeySecret" value="${aliyun.accessKeySecret}"/>
+        <property name="endpoint" value="${aliyun.endpoint}"></property>
+    </bean>
+
+    <!--RMI Client的配置1-->
+    <bean id="rmiUserClientA" class="org.springframework.remoting.rmi.RmiProxyFactoryBean">
+        <property name="serviceUrl" value="rmi://127.0.0.1:1022/rmiUserA"/>
+        <property name="serviceInterface" value="com.hyx.service.RmiUserService"/>
+    </bean>
+    <bean id="rmiStudentClientA" class="org.springframework.remoting.rmi.RmiProxyFactoryBean">
+        <property name="serviceUrl" value="rmi://127.0.0.1:1022/rmiStudentA"/>
+        <property name="serviceInterface" value="com.hyx.service.RmiStudentService"/>
+    </bean>
+
+    <!--RMI Client的配置2-->
+    <bean id="rmiUserClientB" class="org.springframework.remoting.rmi.RmiProxyFactoryBean">
+        <property name="serviceUrl" value="rmi://127.0.0.1:1023/rmiUserB"/>
+        <property name="serviceInterface" value="com.hyx.service.RmiUserService"/>
+    </bean>
+    <bean id="rmiStudentClientB" class="org.springframework.remoting.rmi.RmiProxyFactoryBean">
+        <property name="serviceUrl" value="rmi://127.0.0.1:1023/rmiStudentB"/>
+        <property name="serviceInterface" value="com.hyx.service.RmiStudentService"/>
+    </bean>
+</beans>
